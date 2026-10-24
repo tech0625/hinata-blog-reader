@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日向坂46ブログリーダー</title>
+<style>
+body{font-family:-apple-system,sans-serif;margin:0;background:#f5f7fa;color:#222}
+header{background:#65b9b0;color:white;padding:22px 16px}
+h1{font-size:22px;margin:0 0 8px}
+main{padding:14px;max-width:700px;margin:auto}
+button{border:0;border-radius:9px;padding:11px 15px;background:#55aaa2;color:white;font-size:15px}
+#status{font-size:14px;color:#555;margin:14px 0}
+article{background:white;padding:15px;margin:12px 0;border-radius:12px;box-shadow:0 2px 7px #0001}
+article h2{font-size:17px;margin:0 0 8px}
+.meta{font-size:12px;color:#777;margin-bottom:10px}
+.desc{font-size:14px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+a{color:#26877f}
+article img{max-width:100%;height:auto;border-radius:8px}
+</style>
+</head>
+<body>
+<header>
+<h1>日向坂46ブログリーダー</h1>
+<div>公式ブログの新着記事</div>
+</header>
+<main>
+<p>日向坂46のブログをチェックしよう！</p>
+<button id="reload">ブログを更新</button>
+<div id="status">読み込み準備中</div>
+<div id="posts"></div>
+<p><a href="https://www.hinatazaka46.com/s/official/diary/member">公式ブログ一覧はこちら</a></p>
+</main>
+<script>
+const feed="https://rsshub.app/hinatazaka46/blog";
+const posts=document.getElementById("posts");
+const status=document.getElementById("status");
+
+function cleanText(html){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  return (doc.body.textContent||"").trim();
+}
+
+async function loadBlogs(){
+  status.textContent="ブログを取得しています…";
+  posts.replaceChildren();
+  try{
+    const response=await fetch(feed);
+    if(!response.ok) throw new Error("取得エラー");
+    const xml=new DOMParser().parseFromString(
+      await response.text(),"text/xml"
+    );
+    if(xml.querySelector("parsererror")) throw new Error("データ形式エラー");
+    const items=[...xml.querySelectorAll("item")];
+    if(!items.length) throw new Error("記事が見つかりません");
+
+    items.forEach(item=>{
+      const title=item.querySelector("title")?.textContent||"タイトルなし";
+      const link=item.querySelector("link")?.textContent?.trim()||"https://www.hinatazaka46.com/s/official/diary/member";
+      const date=item.querySelector("pubDate")?.textContent||"";
+      const creator=item.getElementsByTagName("dc:creator")[0]?.textContent||"日向坂46";
+      const content=item.getElementsByTagName("content:encoded")[0]?.textContent
+        ||item.querySelector("description")?.textContent||"";
+      const card=document.createElement("article");
+      const heading=document.createElement("h2");
+      const a=document.createElement("a");
+      a.href=link;
+      a.target="_blank";
+      a.rel="noopener";
+      a.textContent=title;
+      heading.appendChild(a);
+      card.appendChild(heading);
+
+      const meta=document.createElement("div");
+      meta.className="meta";
+      meta.textContent=creator+(date?" ・ "+date:"");
+      card.appendChild(meta);
+
+      const text=cleanText(content);
+      if(text){
+        const desc=document.createElement("div");
+        desc.className="desc";
+        desc.textContent=text.slice(0,1200);
+        card.appendChild(desc);
+      }
+      const open=document.createElement("p");
+      const more=document.createElement("a");
+      more.href=link;
+      more.target="_blank";
+      more.rel="noopener";
+      more.textContent="公式サイトで記事を読む ↗";
+      open.appendChild(more);
+      card.appendChild(open);
+      posts.appendChild(card);
+    });
+    status.textContent=items.length+"件の記事を表示しました";
+  }catch(error){
+    status.textContent="自動取得できませんでした。下のリンクから公式ブログを開けます。";
+    const a=document.createElement("a");
+    a.href="https://www.hinatazaka46.com/s/official/diary/member";
+    a.textContent="日向坂46公式ブログ一覧を開く";
+    posts.appendChild(a);
+  }
+}
+document.getElementById("reload").addEventListener("click",loadBlogs);
+loadBlogs();
+</script>
+</body>
+</html>
